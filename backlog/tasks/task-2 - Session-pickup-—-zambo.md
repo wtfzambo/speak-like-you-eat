@@ -5,7 +5,7 @@ status: To Do
 assignee:
   - '@zambo'
 created_date: '2026-08-13 23:04'
-updated_date: '2026-08-17 00:48'
+updated_date: '2026-08-17 20:33'
 labels:
   - continuity
   - handoff
@@ -19,16 +19,17 @@ ordinal: 2000
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
 WHERE WE LEFT OFF
-2026-08-17. Branch `main` completed the target-language fix and 1.0.1 release at commit `e4b62eb`, pushed to `origin/main`; this pickup update is the only later metadata commit. The tree is clean after this handoff commit. TASK-9 is Done. Production now tells the rewrite model to preserve the Target response's original or intentional language mix and never translate; prior context is topic-only. No detector, retry, extra request, language block, or context-selection change was added. Release Please PR #2 merged as `4f067fe`, creating stable `v1.0.1`; GitHub Release `https://github.com/wtfzambo/speak-like-you-eat/releases/tag/v1.0.1` and npm `speak-like-you-eat@1.0.1` are Latest. OIDC publish run `31982999501` passed with SLSA provenance, exactly 12 files, and a clean Pi install. Historical benchmark prompts/manifests/fingerprints remain immutable; the production language hardening is explicitly unbenchmarked. TASK-7 remains To Do with the six paused SLYE Markdown design questions.
+2026-08-17. Branch `main` was at `171a9b7`, synchronized with `origin/main`, immediately before the commit that carries this snapshot; the tree is clean after that commit and the new commit is local until explicitly pushed. TASK-10 is Done: the repository now uses the latest Pandino installation for the existing pi-only harness, with Backlog, document governance, session continuity, and parallel-agent guidance preserved. Six Pi helpers are present; the five specialists retain the exact `.pandino/models.json` pins and canonical `fallback-runner` is read-only and unpinned. The sole merge candidate was resolved, `.pandino/merge/` was removed, `.pandino/snippets/` was retained, grilling was refreshed, and `.pi/npm/` is ignored. `npm run check` passed 75 tests; both no-call benchmark dry-runs retained fingerprints `80d7d401fe9862d3d558efc4ba8b674014dd3e7e975f02d77cc3b37c30fbd759` and `59fc67e920727f25b40b1fd874cda6b51aff9f98426ae09af27275a4fda96728`. Taste/spec/docs reviews found no blocker. The non-blocking upstream `.pi/npm/` duplicate-ignore caveat remains documented in TASK-10.
 
 WHAT'S NEXT
-1. Resume with `backlog task view TASK-7 --plain` when the user wants SLYE Markdown, and continue the saved design tree before implementation.
-2. The unresolved root choices are Pi command versus CLI, one file versus batch/MDX, sibling output policy, programmatic Markdown protection, source-language preservation, and configured-model reuse.
-3. Do not implement TASK-7 until the user answers the full frontier and approves a bounded plan. Release Please will create the next stable release PR from conventional commits.
+1. The operator has a new SLYE feature suggested on Reddit. Ask for the Reddit link or exact proposal, desired user behavior, and any constraints; search existing Backlog work before creating or changing a task.
+2. Load the grilling skill and stress-test the feature plan before implementation, as required for non-trivial work.
+3. TASK-7 remains To Do with the separate paused SLYE Markdown design questions; do not conflate it with the Reddit feature unless the proposal is actually the same feature.
+4. Push the Pandino update commit only if the operator explicitly asks.
 
 WAITING ON / GATED BY
-As of 2026-08-17, only the user's product decisions for TASK-7 are pending. There are no release, credential, npm, GitHub, or infrastructure blockers. No additional benchmark execution or provider/model call is approved.
+As of 2026-08-17, the new feature is waiting on the operator's Reddit link or description and product intent. The Pandino update has no implementation or test blocker; remote push remains unapproved. A separate upstream Pandino installer fix for the minor duplicate-ignore caveat also requires explicit approval.
 
 VERIFY
-Run `git status -sb`; `git log --oneline -5`; `backlog task view TASK-9 --plain`; `backlog task view TASK-7 --plain`; `npm view speak-like-you-eat version dist-tags --json`; and `gh release view v1.0.1 --repo wtfzambo/speak-like-you-eat --json tagName,isDraft,isPrerelease,url`. Expected: clean synchronized main, TASK-9 Done, TASK-7 To Do, npm latest 1.0.1, and stable v1.0.1. For code integrity, run `npm run check`, `npm run benchmark:dry-run`, and `npm run benchmark:phase-2:dry-run`; expected: 75 tests, phase-one fingerprint `80d7d401fe9862d3d558efc4ba8b674014dd3e7e975f02d77cc3b37c30fbd759`, and phase-two fingerprint `59fc67e920727f25b40b1fd874cda6b51aff9f98426ae09af27275a4fda96728`.
+Run `git status -sb` and `git log --oneline -3`; expected a clean branch one local Pandino-update commit ahead of `origin/main`. Run `backlog task view TASK-10 --plain`; expected Done with all five criteria checked. Run `find .pi/agents -maxdepth 1 -name '*.md' | wc -l` and inspect `model:` lines; expected six helpers, five pins, and no fallback pin. `npm run check` should pass 75 tests.
 <!-- SECTION:DESCRIPTION:END -->

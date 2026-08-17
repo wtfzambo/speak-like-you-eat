@@ -82,7 +82,9 @@ Code without meaningful tests is not reliable, but coverage is not the objective
 
 ## Agent workflow
 
-The main agent plans and orchestrates; five subagents do the specialized work — `implementer`, `taste-reviewer`, `spec-reviewer`, `docs-reviewer`, `final-reviewer`, defined in `.pi/agents/`. Roles do not blur: the implementer is the only subagent that edits, reviewers inspect and report. Each carries its own pinned model, so a reviewer is never the same model as the writer; do not override it at spawn time.
+The main agent plans and orchestrates; five specialist subagents do the specialized work — `implementer`, `taste-reviewer`, `spec-reviewer`, `docs-reviewer`, `final-reviewer`, defined in `.pi/agents/`. Roles do not blur: the implementer is the only subagent that edits, reviewers inspect and report. Each specialist carries its own pinned model, so a reviewer is never the same model as the writer; do not override it at spawn time.
+
+Pandino also installs `fallback-runner`, a non-specialist, inspection-only escape hatch. Use it only when a reviewer cannot launch or complete because its provider, quota, session, or pinned model is unavailable — never because a review found problems or the orchestrator dislikes its result. The orchestrator must supply an explicit alternate model, the failed reviewer's canonical instructions verbatim, and the concrete task context; preserve the review role and tool boundaries. For review work, choose a model different from the writer. Never invoke `fallback-runner` without an explicit model, which would silently inherit the parent, and visibly report every substitution.
 
 Those definitions are written for [pi](https://pi.dev). On another harness, read them as role descriptions and apply the workflow with whatever that harness offers: its own subagent mechanism, separate sessions, or a single agent that adopts one role at a time and states which. If a role cannot be delegated at all, run its review yourself against the same definition and say so — do not skip the step because the mechanism is missing.
 
