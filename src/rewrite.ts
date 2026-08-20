@@ -35,13 +35,26 @@ export function prepareRewriteRequest(
     return undefined;
   }
 
-  return {
-    entryId: targetEntry.id,
-    request: {
-      target: joinTextBlocks(target.content),
-      context: buildPriorContext(branch, targetEntry.id),
-    },
-  };
+  return prepareRequest(branch, targetEntry, target);
+}
+
+export function prepareManualRewriteRequest(branch: readonly SessionEntry[]): PreparedRewriteRequest | undefined {
+  const targetEntry = findLatestConversationalEntry(branch);
+  if (targetEntry === undefined) {
+    return undefined;
+  }
+
+  const target = targetEntry.message;
+  if (target.role !== "assistant" || target.stopReason !== "stop" || hasToolCall(target)) {
+    return undefined;
+  }
+
+  const targetText = joinTextBlocks(target.content);
+  if (stripFencedCodeBlocks(targetText).trim() === "") {
+    return undefined;
+  }
+
+  return prepareRequest(branch, targetEntry, target);
 }
 
 export function stripFencedCodeBlocks(text: string): string {
@@ -112,6 +125,34 @@ function findTargetEntry(branch: readonly SessionEntry[], target: AssistantMessa
   }
 
   return undefined;
+}
+
+function findLatestConversationalEntry(branch: readonly SessionEntry[]): SessionMessageEntry | undefined {
+  for (let index = branch.length - 1; index >= 0; index -= 1) {
+    const entry = branch[index];
+    if (entry?.type !== "message") {
+      continue;
+    }
+    if (entry.message.role === "user" || entry.message.role === "assistant") {
+      return entry;
+    }
+  }
+
+  return undefined;
+}
+
+function prepareRequest(
+  branch: readonly SessionEntry[],
+  targetEntry: SessionMessageEntry,
+  target: AssistantMessage,
+): PreparedRewriteRequest {
+  return {
+    entryId: targetEntry.id,
+    request: {
+      target: joinTextBlocks(target.content),
+      context: buildPriorContext(branch, targetEntry.id),
+    },
+  };
 }
 
 function messagesMatch(left: AssistantMessage, right: AssistantMessage): boolean {

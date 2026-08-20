@@ -3,6 +3,7 @@ import test from "node:test";
 import type { AgentEndEvent, SessionEntry } from "@earendil-works/pi-coding-agent";
 import {
   MAXIMUM_CONTEXT_CHARACTERS,
+  prepareManualRewriteRequest,
   prepareRewriteRequest,
   serializeContext,
   stripFencedCodeBlocks,
@@ -27,6 +28,77 @@ test("rejects a final response with 199 non-whitespace prose characters", () => 
   const target = assistant([text("a".repeat(199))]);
 
   assert.equal(prepareRewriteRequest([target], [entry("assistant", target)]), undefined);
+});
+
+test("prepares a one-character prose manual target with code", () => {
+  const code = "```ts\nconst answer = true;\n```";
+  const target = assistant([text(code), text("x")]);
+  const result = prepareManualRewriteRequest([entry("user", user("Explain this")), entry("assistant", target)]);
+
+  assert.deepEqual(result, {
+    entryId: "assistant",
+    request: {
+      target: `${code}\n\nx`,
+      context: [{ role: "user", text: "Explain this" }],
+    },
+  });
+});
+
+test("rejects blank, code-only, unfinished, non-stop, and tool-call manual targets", () => {
+  const cases: AgentMessage[] = [
+    assistant([text("   ")]),
+    assistant([text("```ts\nconst ignored = true;\n```")]),
+    assistant([text("prose")], "length"),
+    assistant([text("prose")], "error"),
+    assistant([text("prose")], "aborted"),
+    assistant([text("prose")], "toolUse"),
+    assistant([text("prose"), { type: "toolCall", id: "tool-1", name: "read", arguments: {} }]),
+  ];
+
+  for (const target of cases) {
+    assert.equal(prepareManualRewriteRequest([entry("assistant", target)]), undefined);
+  }
+});
+
+test("does not manually rewrite an older assistant response when a user message follows it", () => {
+  const target = assistant([text("Completed response")]);
+
+  assert.equal(
+    prepareManualRewriteRequest([entry("assistant", target), entry("user", user("A newer request"))]),
+    undefined,
+  );
+});
+
+test("ignores trailing non-conversational entries when selecting a manual target", () => {
+  const target = assistant([text("Completed response")]);
+  const branch: SessionEntry[] = [
+    entry("assistant", target),
+    entry("tool-result", toolResult()),
+    {
+      type: "thinking_level_change",
+      id: "thinking",
+      parentId: "tool-result",
+      timestamp: "now",
+      thinkingLevel: "high",
+    },
+    {
+      type: "model_change",
+      id: "model",
+      parentId: "thinking",
+      timestamp: "now",
+      provider: "provider",
+      modelId: "model",
+    },
+    {
+      type: "custom",
+      id: "custom",
+      parentId: "model",
+      timestamp: "now",
+      customType: "slye.rewrite",
+    },
+  ];
+
+  assert.equal(prepareManualRewriteRequest(branch)?.entryId, "assistant");
 });
 
 test("skips short, blank, code-only, unfinished, non-stop, and tool-call final responses", () => {
@@ -112,15 +184,19 @@ test("context serialization stays within 8,000 characters by retaining the newes
   const target = assistant([text("final ".repeat(40))]);
   const largeIntermediateText = `${"old".repeat(10)}${"new".repeat(3_000)}`;
   const intermediate = assistant([text(largeIntermediateText)]);
-  const result = prepareRewriteRequest(
-    [intermediate, target],
-    [entry("user", user("old user".repeat(1_000))), entry("assistant", intermediate), entry("target", target)],
-  );
+  const branch = [
+    entry("user", user("old user".repeat(1_000))),
+    entry("assistant", intermediate),
+    entry("target", target),
+  ];
+  const automaticResult = prepareRewriteRequest([intermediate, target], branch);
+  const manualResult = prepareManualRewriteRequest(branch);
 
-  assert.equal(result?.request.context.length, 1);
-  assert.equal(result?.request.context[0]?.role, "assistant");
-  assert.equal(serializeContext(result?.request.context ?? []).length, MAXIMUM_CONTEXT_CHARACTERS);
-  assert.match(result?.request.context[0]?.text ?? "", /newnewnew$/);
+  assert.equal(automaticResult?.request.context.length, 1);
+  assert.equal(automaticResult?.request.context[0]?.role, "assistant");
+  assert.equal(serializeContext(automaticResult?.request.context ?? []).length, MAXIMUM_CONTEXT_CHARACTERS);
+  assert.match(automaticResult?.request.context[0]?.text ?? "", /newnewnew$/);
+  assert.deepEqual(manualResult?.request.context, automaticResult?.request.context);
 });
 
 function text(value: string): { type: "text"; text: string } {
