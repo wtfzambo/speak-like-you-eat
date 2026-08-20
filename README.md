@@ -24,17 +24,18 @@ pi install -l npm:speak-like-you-eat
 
 ## Use
 
-1. Run `/slye model` to select and save an authenticated model. SLYE enables it and saves it globally or, in a trusted project, locally.
-2. Chat normally. After an eligible answer, read the `🤌 Speak like you eat:` card below the unchanged original.
-3. Use `/slye off` later to disable SLYE and `/slye on` to restore it.
+1. After Pi finishes an answer, run `/slye` for an eligible target. It rewrites the latest completed assistant response once and adds a plain-language rewrite card below the unchanged original; if you have typed a follow-up since, there is no target.
+2. If no usable model exists, `/slye` opens the model and scope picker, saves the chosen model with automatic rewriting off, globally or, in a trusted project, locally, and immediately performs the rewrite.
+3. If you want eligible answers rewritten automatically, run `/slye on`. Run `/slye off` to stop automatic rewriting while keeping `/slye` available.
 
 | Command | What it does |
 | --- | --- |
-| `/slye model` | Choose a model; Tab switches between scoped and all authenticated eligible models. |
-| `/slye on` | Enable SLYE or open the picker when no usable model is saved. |
-| `/slye off` | Disable SLYE. |
+| `/slye` | Rewrite the latest completed assistant response on demand. |
+| `/slye model` | Choose a model without changing a valid automatic on/off state; first-time setup saves automatic rewriting off. Tab switches between scoped and all authenticated eligible models. |
+| `/slye on` | Enable automatic rewriting, or choose a model and enable it when no usable model is saved. |
+| `/slye off` | Disable automatic rewriting; manual `/slye` remains available. |
 
-SLYE automatically uses the selected model's lowest supported thinking level. Only normally completed final responses with at least 200 prose characters outside fenced code are eligible.
+SLYE automatically uses the selected model's lowest supported thinking level. Automatic rewriting requires a normally completed final response with at least 200 non-whitespace prose characters outside fenced code. Manual `/slye` uses the same normal-completion, prose, and no-tool-call requirements, but has no 200-character minimum.
 
 ### Recommended models
 
@@ -52,8 +53,8 @@ Models that I recommend:
 
 - The original response stays visible and unchanged. The display-only card never enters LLM context.
 - SLYE's rewrite request tells the model to preserve the target response's language and intentional language mix rather than translate it.
-- Each eligible response makes one additional provider request, with its own cost and latency.
-- Escape cancels a rewrite. After 45 seconds or another failure, SLYE leaves the original alone and fails open.
+- Each target has at most one persistent companion card. A secondary provider request has its own cost and latency and happens only for an automatically eligible response or an eligible, not-yet-completed manual target.
+- Escape cancels a rewrite. After 45 seconds or another failure, SLYE leaves the original alone, fails open, and lets you retry manually.
 - SLYE sends an isolated, SLYE-controlled payload directly to the selected provider. It does not load project instructions, skills, prompts, tools, files, or the full session history. Other extensions and provider-side processing are outside SLYE's control.
 
 ## Evidence

@@ -3,7 +3,7 @@ id: doc-2
 title: SLYE sandbox manual checks
 type: guide
 created_date: '2026-08-13 23:14'
-updated_date: '2026-08-17 00:33'
+updated_date: '2026-08-20 18:06'
 ---
 # SLYE sandbox manual checks
 
@@ -38,7 +38,7 @@ This confirms the project-local package registration and path; it does not confi
 pi --approve --offline
 ```
 
-### Slice 2 — configuration and onboarding
+### Slice 2 — configuration and onboarding (no model call)
 
 Do not change global Pi settings. Before starting, delete only `../speak_like_you_eat_sandbox/.pi/slye.json` if it exists. `This project only` appears only for a trusted project; `--approve` supplies that trust for the current run.
 
@@ -64,11 +64,12 @@ pi --approve
 
 Do not submit a prompt or make a model request:
 
-1. In the isolated run, confirm the yellow non-modal warning directs you to `/slye model`.
+1. In the isolated run, confirm the yellow non-modal warning distinguishes `/slye model` (configure manual rewriting) from `/slye on` (configure and enable automatic rewriting).
 2. In a normal run, run `/slye model`, choose an authenticated candidate, then choose `This project only`.
-3. Exit Pi and verify `.pi/slye.json` contains the selected `provider` and `id` with `"enabled": true`.
-4. Start Pi again, run `/slye off`, and verify `.pi/slye.json` now has `"enabled": false` while retaining the model.
-5. Run `/slye on`, confirm it restores the saved model without opening a picker, then exit. Do not submit a prompt or make a model request at any point.
+3. Exit Pi and verify `.pi/slye.json` contains the selected `provider` and `id` with `"enabled": false`.
+4. Start Pi again and confirm the valid disabled configuration is silent. Run `/slye model`, select a different candidate, choose the same scope, exit, and confirm `"enabled": false` remains while the model changed.
+5. Start Pi again, run `/slye on`, confirm it restores the saved model without opening a picker, then exit. Verify `.pi/slye.json` now has `"enabled": true`.
+6. Start Pi once more, run `/slye off`, and verify `.pi/slye.json` has `"enabled": false` while retaining the model. Do not submit a prompt or make a model request at any point.
 
 ### TASK-1.1 — model picker and automatic thinking (no model call)
 
@@ -104,19 +105,24 @@ test "$comparison_status" -eq 0
 
 A terminal check cannot observe SLYE's provider payload. Automated evidence is `test/display.test.ts`'s `calls the configured authenticated model once with an isolated exact rewrite payload` and `test/model-rewrite.test.ts`'s `builds one isolated user message with labelled context, the complete target, and the promoted prompt`; run `npm test` to exercise them.
 
-### Slice 4 — real rewrite, cancellation, and resume
+### Slice 4 / TASK-11 — manual-first and automatic rewrite checks (provider calls)
 
-Use the existing sandbox project `.pi/slye.json` created during the slice-2 check; do not edit or delete it. Run:
+Do not run this section now. Every numbered step marked **Provider calls** requires explicit operator approval immediately before it runs. A submitted prompt makes one primary provider call; an actual SLYE rewrite makes one secondary provider call. Run the preceding picker and configuration checks in sessions separate from the provider-call steps; those checks make no provider calls.
+
+Use a disposable authenticated profile with no existing SLYE configuration for the manual-first check, or record that the first-time case cannot be isolated without changing a protected global configuration. Start Pi from the sandbox only after approval:
 
 ```sh
 cd ../speak_like_you_eat_sandbox
 pi --approve
 ```
 
-1. Submit one prompt expected to produce a normally completed final answer with more than 200 prose characters. This makes one primary request and one secondary rewrite request.
-2. Verify the unchanged original appears first, then the exact working text `Rewriting AI-speak…`, then one plain-language `🤌 Speak like you eat:` card. Verify the card preserves the original target response's language, not the latest user's language, and preserves technical literals, Markdown, and fenced code.
-3. Submit another eligible answer and press Escape while its secondary rewrite is running. A started secondary request may consume provider usage. Verify there is no card and no warning for that answer.
-4. Exit, then resume or reopen the first session. Verify the saved card still renders and that resume alone appends no duplicate card.
+1. **Provider calls: one primary, then one secondary after explicit `/slye`.** Submit a prompt designed to produce a normally completed answer shorter than 200 non-whitespace prose characters for the manual-threshold check. Confirm no automatic card appears because automatic rewriting is not enabled. Run `/slye`, choose a model and scope when prompted, and approve the secondary call. Confirm the original remains unchanged, one `🤌 Speak like you eat:` card appears, and the saved configuration has `"enabled": false`.
+2. **Provider calls: no new primary or secondary call.** Run `/slye` again for that completed target. Confirm the informational completed-target message and that no duplicate call or card appears.
+3. **Provider calls: one primary only.** While automatic rewriting remains off, submit a long-answer prompt that would satisfy automatic eligibility. Confirm no automatic secondary call or card appears.
+4. Run `/slye on` and confirm automatic rewriting is enabled without opening a picker when the saved model is usable. **Provider calls: one primary and one automatic secondary.** Submit a long-answer prompt. Confirm the unchanged original, `Rewriting AI-speak…`, and exactly one companion card.
+5. Run `/slye off` and confirm the model remains saved with `"enabled": false`. **Provider calls: one primary only, then a secondary only if explicitly invoked.** Submit another long-answer prompt and confirm no automatic card. Run `/slye` only if separately approved, then confirm one manual secondary call and one card.
+6. **Provider calls: one primary, one cancelled secondary, then one retry secondary.** Submit a new eligible answer while automatic rewriting is off. Run `/slye`, press Escape while `Rewriting AI-speak…` is visible, and confirm there is no warning or card. Run `/slye` again and approve the retry; confirm one card appears. A cancelled secondary request may still consume usage.
+7. Exit and resume the session. **Provider calls: none.** Confirm every existing companion card still renders, legacy display-only cards are not duplicated, and resume alone adds no card. For a target that already has a card, run `/slye` only if separately approved and confirm the completed-target message rather than a new call or card.
 
 ### Slice 5 — final package verification
 
@@ -147,6 +153,7 @@ For an isolated tarball smoke before publication, create temporary package, agen
 ```sh
 (
   set -e
+  package_version="$(node -p "require('./package.json').version")"
   package_dir=""
   agent_dir=""
   project_dir=""
@@ -163,12 +170,12 @@ For an isolated tarball smoke before publication, create temporary package, agen
   printf '{\n  "name": "temporary-pi-agent-npm"\n}\n' > "$agent_dir/npm/package.json"
   tarball="$(npm pack --silent --pack-destination "$package_dir")"
   npm install --prefix "$agent_dir/npm" --legacy-peer-deps --ignore-scripts --no-audit --no-fund "$package_dir/$tarball"
-  printf '{\n  "packages": ["npm:speak-like-you-eat@1.0.0"]\n}\n' > "$agent_dir/settings.json"
+  printf '{\n  "packages": ["npm:speak-like-you-eat@%s"]\n}\n' "$package_version" > "$agent_dir/settings.json"
   (cd "$project_dir" && PI_CODING_AGENT_DIR="$agent_dir" pi list --approve)
 )
 ```
 
-The list must find `npm:speak-like-you-eat@1.0.0` and no temporary files may remain.
+The list must find `npm:speak-like-you-eat@<current package version>` using the version derived from `package.json`, and no temporary files may remain.
 
 ### Later slices
 

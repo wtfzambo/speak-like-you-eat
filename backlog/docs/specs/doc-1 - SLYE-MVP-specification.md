@@ -3,13 +3,13 @@ id: doc-1
 title: SLYE MVP specification
 type: specification
 created_date: '2026-08-13 23:14'
-updated_date: '2026-08-17 00:32'
+updated_date: '2026-08-20 18:06'
 ---
 # SLYE MVP specification
 
 ## Status
 
-The MVP implementation and sandbox gates are complete. The public two-phase benchmark, evidence-based prompt promotion, automatic minimum-thinking policy, scoped/all model picker, and integrated package verification are also complete. MVP acceptance and branch-level review evidence are tracked in TASK-1.
+The MVP implementation and sandbox gates are complete. The public two-phase benchmark, evidence-based prompt promotion, automatic minimum-thinking policy, scoped/all model picker, and integrated package verification are also complete. MVP acceptance and branch-level review evidence are tracked in TASK-1. Manual-first setup and on-demand rewrites are tracked in TASK-11.
 
 ## Scope
 
@@ -17,22 +17,24 @@ SLYE operates only in Pi's interactive TUI. Outside the TUI it is a no-op.
 
 ## Configuration and onboarding
 
-- Configuration is stored in `slye.json`, validated before use, and contains only `enabled` plus the selected model's `provider` and `id`; it never contains a thinking setting.
+- Configuration is stored in `slye.json`, validated before use, and contains `enabled` and, when a model is selected, that model's `provider` and `id`; the model is optional while automatic rewriting is disabled, and thinking is never stored. `enabled` controls automatic rewriting only, so `{enabled:false, model}` is ready for manual rewrites.
 - A complete project-local configuration overrides the complete global configuration only when the project is trusted. An invalid trusted project configuration blocks global fallback.
 - Configuration writes are atomic.
-- If no model is configured, Pi shows a yellow non-modal startup warning directing the user to `/slye model`; SLYE otherwise does no work.
-- `/slye model` opens a custom searchable picker showing each authenticated eligible provider/model and its automatically enforced thinking level. It opens on eligible authenticated scoped models when any exist; otherwise it opens on all authenticated eligible models.
+- If no model is selected, Pi shows a yellow non-modal startup warning explaining that `/slye model` configures manual rewriting and `/slye on` configures and enables automatic rewriting. A valid disabled configuration with a model is silent even when that model is unavailable. An unavailable selected model warns only when automatic rewriting is enabled; malformed configuration always warns.
+- `/slye model` opens a custom searchable picker showing each authenticated eligible provider/model and its automatically enforced thinking level. It opens on eligible authenticated scoped models when any exist; otherwise it opens on all authenticated eligible models. It preserves a valid existing automatic on/off state; a first or repaired configuration saves automatic rewriting off.
 - When scoped candidates exist, Tab switches non-persistently between scoped and all authenticated eligible models and preserves the search. Each picker invocation resets to its default scope. Esc or Ctrl-C cancels without writing. After selection, the existing global or trusted-project save scope remains available.
 - SLYE derives the first currently supported model level in this exact order: `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`. It ignores a scoped model entry's pinned thinking level. A model whose metadata exposes no supported level cannot be selected; if a saved model loses valid level metadata, SLYE fails open. A reasoning-only model therefore runs at its minimum (for example, `high`), with cost and latency determined by that model choice.
-- `/slye on` and `/slye off` persist the enabled state. Enabling with no usable model opens model selection. A save confirmation displays provider, model, and the recomputed enforced thinking level. Neither command overwrites an invalid effective configuration file.
+- `/slye on` enables automatic rewriting and opens model selection when no usable model is saved. `/slye off` disables only automatic rewriting and retains the model for manual use. A save confirmation displays provider, model, and the recomputed enforced thinking level. Neither command overwrites an invalid effective configuration file.
 
 ## Eligible responses and display
 
-- Consider only the final, normally completed assistant response.
-- It must have at least 200 non-whitespace prose characters after fenced code is excluded from the gate.
+- Automatic rewriting considers only a final, normally completed assistant response with at least 200 non-whitespace prose characters after fenced code is excluded from the gate.
+- `/slye` without arguments waits for Pi to settle and manually targets exactly the latest completed assistant response. If a newer conversational user message exists, there is no target.
+- Manual targeting bypasses only the automatic 200-character threshold. Its target must still be normally completed, have non-blank prose outside fenced code, and contain no tool call.
 - Do not rewrite intermediate, aborted, errored, length-truncated, tool-call, thinking, or tool-result content.
 - Keep the original assistant response visible and unchanged.
 - Append an immutable, persistent, display-only custom entry labelled `🤌 Speak like you eat:`. It must render after session resume and never enter LLM context.
+- A target has at most one companion across automatic rewriting, manual commands, repeated requests, and resumed sessions. SLYE recognizes existing 1.0.1 display-only cards as companions. A repeated manual `/slye` for a completed target is an informational no-op. Duplicate automatic events remain silent and make no call or card. Failed, cancelled, and append-failed attempts remain available for a manual retry.
 
 ## Rewrite behavior
 
@@ -58,7 +60,7 @@ See the complete reviewed [benchmark results](doc-4%20-%20SLYE-benchmark-results
 
 ## Interaction and failures
 
-- While rewriting, show `Rewriting AI-speak…`.
-- Escape cancels the secondary request without a warning.
+- A manual `/slye` validates its target before configuration. When the target is valid but no usable model is selected, it opens the existing model and scope picker, saves the chosen model with automatic rewriting off, and immediately runs the requested rewrite. Invalid configuration remains unchanged. Picker or scope cancellation writes and calls nothing.
+- Automatic rewriting shows the existing `Rewriting AI-speak…` working message. A manual rewrite shows a cancellable loader with the same text. Escape cancels the secondary request without a warning.
 - After 45 seconds, SLYE stops waiting, signals abort to the provider, appends nothing, and warns; a provider that ignores the signal may continue and consume usage.
-- Any other provider, output, append, or unexpected processing failure leaves the original intact and warns at most once per extension session.
+- Any other provider, output, append, or unexpected processing failure leaves the original intact and warns at most once per extension session. Failures do not mark the target complete, so a later manual request can retry it.
