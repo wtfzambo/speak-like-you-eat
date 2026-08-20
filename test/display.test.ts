@@ -659,6 +659,45 @@ test("manual picker saves a replacement as disabled and cancellation leaves conf
   assert.equal(selected.completionCalls, 1);
 });
 
+test("manual picker revalidates a changed target after saving an absent configuration", async (t) => {
+  const directory = await setupConfiguredDirectory(t, false);
+  const configPath = join(process.env.PI_CODING_AGENT_DIR ?? "", "slye.json");
+  await rm(configPath);
+  const initialTarget = longAssistant([text("Initial completed response.")]);
+  const replacementTarget = longAssistant([text("Replacement completed response.")]);
+  const branch = [entry("user", user("please explain")), entry("initial-target", initialTarget)];
+  let pickerOpened = false;
+  const extension = createExtension();
+  const testContext = createContext({
+    cwd: directory,
+    branch,
+    customInputBatches: [["\r"], []],
+    selectAnswers: ["All projects"],
+    onCustomComponent() {
+      if (pickerOpened) {
+        return;
+      }
+
+      pickerOpened = true;
+      branch.push(entry("replacement-target", replacementTarget));
+    },
+    async complete() {
+      return response("stop", [text("Plain response.")]);
+    },
+  });
+
+  await extension.command.handler("", testContext.context);
+
+  assert.deepEqual(await readConfigFile(configPath), { enabled: false, model: { provider: "test", id: "model" } });
+  assert.equal(testContext.completionCalls, 1);
+  assert.deepEqual(extension.appendedEntries, [
+    {
+      customType: "slye.rewrite",
+      data: { display: "Plain response.", targetEntryId: "replacement-target" },
+    },
+  ]);
+});
+
 test("manual invalid configuration is not changed and unknown arguments show usage", async (t) => {
   const directory = await setupConfiguredDirectory(t, false);
   const configPath = join(process.env.PI_CODING_AGENT_DIR ?? "", "slye.json");
