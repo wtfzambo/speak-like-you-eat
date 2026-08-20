@@ -145,7 +145,13 @@ test("warns non-modally on an unconfigured TUI session and does nothing outside 
   const extension = createExtension();
   const tui = createContext({ cwd: join(directory, "project") });
   await extension.startSession(tui.context);
-  assert.deepEqual(tui.notifications, [{ message: "SLYE is not configured. Run /slye model.", type: "warning" }]);
+  assert.deepEqual(tui.notifications, [
+    {
+      message:
+        "SLYE has no model configured. Run /slye model to configure manual rewrites, or /slye on to configure and enable automatic rewrites.",
+      type: "warning",
+    },
+  ]);
 
   const print = createContext({ cwd: join(directory, "print-project"), mode: "print" });
   await extension.startSession(print.context);
@@ -163,7 +169,7 @@ test("/slye model writes the selected trusted project configuration", async (t) 
   const { context, notifications } = createContext({
     cwd: join(directory, "project"),
     trusted: true,
-    models: [],
+    models: [chosen],
     scopedModels: [{ model: chosen, thinkingLevel: "high" }],
     selectAnswers: ["This project only"],
   });
@@ -173,10 +179,13 @@ test("/slye model writes the selected trusted project configuration", async (t) 
   assert.deepEqual(await readConfig(path), {
     kind: "valid",
     path,
-    config: { enabled: true, model: { provider: "openai", id: "gpt-5" } },
+    config: { enabled: false, model: { provider: "openai", id: "gpt-5" } },
   });
   assert.deepEqual(notifications, [
-    { message: "SLYE enabled with openai / gpt-5 · thinking: off for This project only.", type: "info" },
+    {
+      message: "SLYE manual rewrites configured with openai / gpt-5 · thinking: off for This project only.",
+      type: "info",
+    },
   ]);
 });
 
@@ -207,13 +216,16 @@ test("/slye model can select an all-only authenticated model after opening scope
   assert.deepEqual(await readConfig(path), {
     kind: "valid",
     path,
-    config: { enabled: true, model: { provider: "zeta", id: "all-only" } },
+    config: { enabled: false, model: { provider: "zeta", id: "all-only" } },
   });
   assert.match(pickerRenders[0] ?? "", /Scope: Scoped models/);
   assert.match(pickerRenders[0] ?? "", /openai \/ scoped · thinking: off/);
   assert.match(pickerRenders[1] ?? "", /Scope: All authenticated models/);
   assert.deepEqual(notifications, [
-    { message: "SLYE enabled with zeta / all-only · thinking: off for All projects.", type: "info" },
+    {
+      message: "SLYE manual rewrites configured with zeta / all-only · thinking: off for All projects.",
+      type: "info",
+    },
   ]);
 });
 
@@ -240,8 +252,78 @@ test("/slye model writes the selected global configuration", async (t) => {
   assert.deepEqual(await readConfig(path), {
     kind: "valid",
     path,
+    config: { enabled: false, model: { provider: "openai", id: "gpt-5" } },
+  });
+});
+
+test("/slye model preserves valid automatic mode and repairs invalid configuration as manual-only", async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), "slye-onboarding-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const previousAgentDir = process.env.PI_CODING_AGENT_DIR;
+  const agentDirectory = join(directory, "agent");
+  process.env.PI_CODING_AGENT_DIR = agentDirectory;
+  t.after(() => {
+    if (previousAgentDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
+    else process.env.PI_CODING_AGENT_DIR = previousAgentDir;
+  });
+
+  const path = join(agentDirectory, CONFIG_FILENAME);
+  const chosen = model("openai", "gpt-5");
+  const extension = createExtension();
+
+  await writeConfigAtomically(path, { enabled: true, model: { provider: "old", id: "enabled" } });
+  const enabled = createContext({
+    cwd: join(directory, "enabled"),
+    models: [chosen],
+    selectAnswers: ["All projects"],
+  });
+  await extension.command.handler("model", enabled.context);
+  assert.deepEqual(await readConfig(path), {
+    kind: "valid",
+    path,
     config: { enabled: true, model: { provider: "openai", id: "gpt-5" } },
   });
+  assert.deepEqual(enabled.notifications, [
+    { message: "SLYE enabled with openai / gpt-5 · thinking: off for All projects.", type: "info" },
+  ]);
+
+  await writeConfigAtomically(path, { enabled: false, model: { provider: "old", id: "disabled" } });
+  const disabled = createContext({
+    cwd: join(directory, "disabled"),
+    models: [chosen],
+    selectAnswers: ["All projects"],
+  });
+  await extension.command.handler("model", disabled.context);
+  assert.deepEqual(await readConfig(path), {
+    kind: "valid",
+    path,
+    config: { enabled: false, model: { provider: "openai", id: "gpt-5" } },
+  });
+  assert.deepEqual(disabled.notifications, [
+    {
+      message: "SLYE manual rewrites configured with openai / gpt-5 · thinking: off for All projects.",
+      type: "info",
+    },
+  ]);
+
+  await writeFile(path, "{ invalid", "utf8");
+  const repaired = createContext({
+    cwd: join(directory, "repaired"),
+    models: [chosen],
+    selectAnswers: ["All projects"],
+  });
+  await extension.command.handler("model", repaired.context);
+  assert.deepEqual(await readConfig(path), {
+    kind: "valid",
+    path,
+    config: { enabled: false, model: { provider: "openai", id: "gpt-5" } },
+  });
+  assert.deepEqual(repaired.notifications, [
+    {
+      message: "SLYE manual rewrites configured with openai / gpt-5 · thinking: off for All projects.",
+      type: "info",
+    },
+  ]);
 });
 
 test("/slye model warns when no authenticated model has usable thinking metadata", async (t) => {
@@ -366,7 +448,9 @@ test("/slye off updates only the trusted project configuration that takes preced
     config: { enabled: false, model: projectModel },
   });
   assert.equal(await readFile(globalPath, "utf8"), globalContents);
-  assert.deepEqual(notifications, [{ message: "SLYE is off.", type: "info" }]);
+  assert.deepEqual(notifications, [
+    { message: "SLYE automatic rewrites are off. Manual /slye remains available.", type: "info" },
+  ]);
 });
 
 test("/slye on restores a usable trusted project model without opening a picker", async (t) => {
@@ -414,7 +498,7 @@ test("/slye on restores a usable trusted project model without opening a picker"
   ]);
 });
 
-test("startup warns once for invalid configuration, warns for unusable models, and ignores disabled configuration", async (t) => {
+test("startup warns once for invalid configuration, guides missing models, warns for enabled unusable models, and ignores disabled models", async (t) => {
   const directory = await mkdtemp(join(tmpdir(), "slye-onboarding-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const previousAgentDir = process.env.PI_CODING_AGENT_DIR;
@@ -442,6 +526,17 @@ test("startup warns once for invalid configuration, warns for unusable models, a
 
   const globalPath = join(agentDirectory, CONFIG_FILENAME);
   const configuredModel = { provider: "openai", id: "gpt-5" } as const;
+  await writeConfigAtomically(globalPath, { enabled: false });
+  const noModelSession = createContext({ cwd: join(directory, "no-model") });
+  await createExtension().startSession(noModelSession.context);
+  assert.deepEqual(noModelSession.notifications, [
+    {
+      message:
+        "SLYE has no model configured. Run /slye model to configure manual rewrites, or /slye on to configure and enable automatic rewrites.",
+      type: "warning",
+    },
+  ]);
+
   await writeConfigAtomically(globalPath, { enabled: true, model: configuredModel });
   const missingModelSession = createContext({ cwd: join(directory, "missing-model") });
   await createExtension().startSession(missingModelSession.context);

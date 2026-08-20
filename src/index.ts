@@ -24,6 +24,8 @@ import { completeRewrite, type RewriteOutcome } from "./model-rewrite.ts";
 import { prepareRewriteRequest } from "./rewrite.ts";
 
 const USAGE = "Usage: /slye model|on|off";
+const MISSING_MODEL_GUIDANCE =
+  "SLYE has no model configured. Run /slye model to configure manual rewrites, or /slye on to configure and enable automatic rewrites.";
 const MODEL_SCOPE_ALL = "All projects";
 const MODEL_SCOPE_PROJECT = "This project only";
 const REWRITE_ENTRY_TYPE = "slye.rewrite";
@@ -62,11 +64,15 @@ export default function speakLikeYouEat(pi: ExtensionAPI): void {
 
     const effectiveConfig = await loadConfig(ctx);
     if (effectiveConfig.kind === "unconfigured") {
-      notifyStartupWarning(ctx, "SLYE is not configured. Run /slye model.");
+      notifyStartupWarning(ctx, MISSING_MODEL_GUIDANCE);
       return;
     }
     if (effectiveConfig.kind === "invalid") {
       notifyStartupWarning(ctx, `SLYE configuration is invalid at ${effectiveConfig.path}. Fix it or run /slye model.`);
+      return;
+    }
+    if (effectiveConfig.config.model === undefined) {
+      notifyStartupWarning(ctx, MISSING_MODEL_GUIDANCE);
       return;
     }
     if (!effectiveConfig.config.enabled) {
@@ -137,7 +143,9 @@ export default function speakLikeYouEat(pi: ExtensionAPI): void {
 
       const command = args.trim();
       if (command === "model") {
-        await chooseAndSaveModel(ctx);
+        const effectiveConfig = await loadConfig(ctx);
+        const enabled = effectiveConfig.kind === "valid" ? effectiveConfig.config.enabled : false;
+        await chooseAndSaveModel(ctx, enabled);
         return;
       }
       if (command === "off") {
@@ -172,7 +180,7 @@ export default function speakLikeYouEat(pi: ExtensionAPI): void {
   }
 }
 
-async function chooseAndSaveModel(ctx: ExtensionCommandContext): Promise<void> {
+async function chooseAndSaveModel(ctx: ExtensionCommandContext, enabled: boolean): Promise<void> {
   const scopedCandidates = selectModelCandidates(
     ctx.scopedModels.map(({ model }) => model),
     (model) => ctx.modelRegistry.hasConfiguredAuth(model),
@@ -197,14 +205,12 @@ async function chooseAndSaveModel(ctx: ExtensionCommandContext): Promise<void> {
     return;
   }
 
-  const config: SlyeConfig = {
-    enabled: true,
-    model: { provider: selected.provider, id: selected.id },
-  };
+  const model = { provider: selected.provider, id: selected.id };
+  const config: SlyeConfig = enabled ? { enabled: true, model } : { enabled: false, model };
   const paths = getConfigPaths(ctx);
 
   if (selectedScope === MODEL_SCOPE_PROJECT) {
-    await saveEnabledConfig(ctx, paths.project, config.model, MODEL_SCOPE_PROJECT, selected.thinkingLevel);
+    await saveModelConfig(ctx, paths.project, config, MODEL_SCOPE_PROJECT, formatModelCandidate(selected));
     return;
   }
 
@@ -254,7 +260,7 @@ async function saveGlobalConfig(
     }
   }
 
-  ctx.ui.notify(`SLYE enabled with ${label} for All projects.`, "info");
+  ctx.ui.notify(formatSavedModelMessage(config.enabled, label, MODEL_SCOPE_ALL), "info");
 }
 
 async function turnOff(ctx: ExtensionCommandContext): Promise<void> {
@@ -274,7 +280,7 @@ async function turnOff(ctx: ExtensionCommandContext): Promise<void> {
     return;
   }
 
-  ctx.ui.notify("SLYE is off.", "info");
+  ctx.ui.notify("SLYE automatic rewrites are off. Manual /slye remains available.", "info");
 }
 
 async function turnOn(ctx: ExtensionCommandContext): Promise<void> {
@@ -288,29 +294,43 @@ async function turnOn(ctx: ExtensionCommandContext): Promise<void> {
     const usableModel = resolveUsableModel(ctx, model);
     if (usableModel !== undefined) {
       const scope = effectiveConfig.scope === "project" ? MODEL_SCOPE_PROJECT : MODEL_SCOPE_ALL;
-      await saveEnabledConfig(ctx, effectiveConfig.path, model, scope, usableModel.thinkingLevel);
+      await saveModelConfig(
+        ctx,
+        effectiveConfig.path,
+        { enabled: true, model },
+        scope,
+        formatModelCandidate({ ...model, thinkingLevel: usableModel.thinkingLevel }),
+      );
       return;
     }
   }
 
-  await chooseAndSaveModel(ctx);
+  await chooseAndSaveModel(ctx, true);
 }
 
-async function saveEnabledConfig(
+async function saveModelConfig(
   ctx: ExtensionCommandContext,
   path: string,
-  model: ModelReference,
+  config: SlyeConfig,
   scope: string,
-  thinkingLevel: ThinkingLevel,
+  label: string,
 ): Promise<void> {
   try {
-    await writeConfigAtomically(path, { enabled: true, model });
+    await writeConfigAtomically(path, config);
   } catch {
     ctx.ui.notify("Could not save SLYE configuration.", "warning");
     return;
   }
 
-  ctx.ui.notify(`SLYE enabled with ${formatModelCandidate({ ...model, thinkingLevel })} for ${scope}.`, "info");
+  ctx.ui.notify(formatSavedModelMessage(config.enabled, label, scope), "info");
+}
+
+function formatSavedModelMessage(enabled: boolean, label: string, scope: string): string {
+  if (enabled) {
+    return `SLYE enabled with ${label} for ${scope}.`;
+  }
+
+  return `SLYE manual rewrites configured with ${label} for ${scope}.`;
 }
 
 function parseRewriteEntryData(data: unknown): RewriteEntryData | undefined {
