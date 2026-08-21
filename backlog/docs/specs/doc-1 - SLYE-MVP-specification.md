@@ -3,25 +3,27 @@ id: doc-1
 title: SLYE MVP specification
 type: specification
 created_date: '2026-08-13 23:14'
-updated_date: '2026-08-20 18:06'
+updated_date: '2026-08-21 18:13'
 ---
 # SLYE MVP specification
 
 ## Status
 
-The MVP implementation and sandbox gates are complete. The public two-phase benchmark, evidence-based prompt promotion, automatic minimum-thinking policy, scoped/all model picker, and integrated package verification are also complete. MVP acceptance and branch-level review evidence are tracked in TASK-1. Manual-first setup and on-demand rewrites are tracked in TASK-11.
+The MVP implementation and sandbox gates are complete. The public two-phase benchmark, evidence-based prompt promotion, automatic minimum-thinking policy, scoped/all model picker, and integrated package verification are also complete. MVP acceptance and branch-level review evidence are tracked in TASK-1. Manual-first setup and on-demand rewrites are tracked in TASK-11. Pi-and-OMP host support is tracked in TASK-13.
 
 ## Scope
 
-SLYE operates only in Pi's interactive TUI. Outside the TUI it is a no-op.
+SLYE operates only in Pi's and Oh My Pi's (OMP's) interactive TUIs. Outside an interactive host TUI it is a no-op.
+
+Pi loads the existing `src/index.ts` implementation. OMP loads `src/omp.ts`, a host adapter around that implementation. The adapter translates persistent rewrite rendering and storage to OMP custom messages, normalizes resumed entries for duplicate detection, and filters every `slye.rewrite` custom message from model context before provider request assembly.
 
 ## Configuration and onboarding
 
 - Configuration is stored in `slye.json`, validated before use, and contains `enabled` and, when a model is selected, that model's `provider` and `id`; the model is optional while automatic rewriting is disabled, and thinking is never stored. `enabled` controls automatic rewriting only, so `{enabled:false, model}` is ready for manual rewrites.
 - A complete project-local configuration overrides the complete global configuration only when the project is trusted. An invalid trusted project configuration blocks global fallback.
 - Configuration writes are atomic.
-- If no model is selected, Pi shows a yellow non-modal startup warning explaining that `/slye model` configures manual rewriting and `/slye on` configures and enables automatic rewriting. A valid disabled configuration with a model is silent even when that model is unavailable. An unavailable selected model warns only when automatic rewriting is enabled; malformed configuration always warns.
-- `/slye model` opens a custom searchable picker showing each authenticated eligible provider/model and its automatically enforced thinking level. It opens on eligible authenticated scoped models when any exist; otherwise it opens on all authenticated eligible models. It preserves a valid existing automatic on/off state; a first or repaired configuration saves automatic rewriting off.
+- If no model is selected, the host shows a yellow non-modal startup warning explaining that `/slye model` configures manual rewriting and `/slye on` configures and enables automatic rewriting. A valid disabled configuration with a model is silent even when that model is unavailable. An unavailable selected model warns only when automatic rewriting is enabled; malformed configuration always warns.
+- `/slye model` opens a custom searchable picker showing each authenticated eligible provider/model and its automatically enforced thinking level. It opens on eligible authenticated scoped models when the host provides any; otherwise it opens on all authenticated eligible models. OMP currently provides no scoped-model list, so its picker uses the full authenticated-model list. It preserves a valid existing automatic on/off state; a first or repaired configuration saves automatic rewriting off.
 - When scoped candidates exist, Tab switches non-persistently between scoped and all authenticated eligible models and preserves the search. Each picker invocation resets to its default scope. Esc or Ctrl-C cancels without writing. After selection, the existing global or trusted-project save scope remains available.
 - SLYE derives the first currently supported model level in this exact order: `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`. It ignores a scoped model entry's pinned thinking level. A model whose metadata exposes no supported level cannot be selected; if a saved model loses valid level metadata, SLYE fails open. A reasoning-only model therefore runs at its minimum (for example, `high`), with cost and latency determined by that model choice.
 - `/slye on` enables automatic rewriting and opens model selection when no usable model is saved. `/slye off` disables only automatic rewriting and retains the model for manual use. A save confirmation displays provider, model, and the recomputed enforced thinking level. Neither command overwrites an invalid effective configuration file.
@@ -29,16 +31,16 @@ SLYE operates only in Pi's interactive TUI. Outside the TUI it is a no-op.
 ## Eligible responses and display
 
 - Automatic rewriting considers only a final, normally completed assistant response with at least 200 non-whitespace prose characters after fenced code is excluded from the gate.
-- `/slye` without arguments waits for Pi to settle and manually targets exactly the latest completed assistant response. If a newer conversational user message exists, there is no target.
+- `/slye` without arguments waits for the host to settle and manually targets exactly the latest completed assistant response. If a newer conversational user message exists, there is no target.
 - Manual targeting bypasses only the automatic 200-character threshold. Its target must still be normally completed, have non-blank prose outside fenced code, and contain no tool call.
 - Do not rewrite intermediate, aborted, errored, length-truncated, tool-call, thinking, or tool-result content.
 - Keep the original assistant response visible and unchanged.
-- Append an immutable, persistent, display-only custom entry labelled `🤌 Speak like you eat:`. It must render after session resume and never enter LLM context.
+- Append an immutable, persistent companion labelled `🤌 Speak like you eat:`. Pi stores it as a display-only custom entry. OMP stores it as a rendered `slye.rewrite` custom message, restores it after session resume, and removes it from the next model context. Automatic OMP cards are stored only after the host becomes idle, so creating the display-only companion does not steer the agent or start another provider turn. In both hosts the companion must render after resume and never enter an LLM provider request.
 - A target has at most one companion across automatic rewriting, manual commands, repeated requests, and resumed sessions. SLYE recognizes existing 1.0.1 display-only cards as companions. A repeated manual `/slye` for a completed target is an informational no-op. Duplicate automatic events remain silent and make no call or card. Failed, cancelled, and append-failed attempts remain available for a manual retry.
 
 ## Rewrite behavior
 
-- Before each rewrite, resolve and recheck the configured authenticated secondary Pi model, derive its lowest currently supported thinking level, and make one direct `streamSimple` completion through its effective provider without changing Pi's active conversation model or thinking. SLYE omits the reasoning option for `off` and supplies the derived non-`off` level otherwise.
+- Before each rewrite, resolve and recheck the configured authenticated secondary model from the host registry, derive its lowest currently supported thinking level, and make one direct `streamSimple` completion through its effective provider without changing the host's active conversation model or thinking. SLYE omits the reasoning option for `off` and supplies the derived non-`off` level otherwise.
 - The completion receives exactly SLYE's rewrite-only system prompt and one user message containing the complete target plus at most 8,000 characters of recent natural-language context from no more than two preceding user-led turns and relevant intermediate assistant prose.
 - SLYE does not create an `AgentSession` or `ResourceLoader`, load `AGENTS.md`, skills, prompts, tools, or project files, or include full session history.
 - This isolation guarantee covers data and behavior supplied by SLYE. Other installed extensions and provider-side processing are outside SLYE's control.
