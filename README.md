@@ -6,13 +6,15 @@
 
 <h6 align="center"><i>Translate AI garbage to human language</i></h6>
 
-SLYE is a Pi package that adds a plain-language rewrite after a completed response.
+SLYE is a Pi and Oh My Pi (OMP) package that adds a plain-language rewrite after a completed response.
 
 In Italian, “speak like you eat” (*parla come mangi*) means being straightforward instead of using big, clever, empty words. SLYE applies that idea to AI output.
 
 *Deliberately inspired by [Claudish to English](https://github.com/gvzdv/claudish-to-english)*
 
 ## Install
+
+### Pi
 
 ```sh
 # Available to all projects
@@ -22,16 +24,22 @@ pi install npm:speak-like-you-eat
 pi install -l npm:speak-like-you-eat
 ```
 
+### Oh My Pi
+
+```sh
+omp plugin install speak-like-you-eat
+```
+
 ## Use
 
-1. After Pi finishes an answer, run `/slye` for an eligible target. It rewrites the latest completed assistant response once and adds a plain-language rewrite card below the unchanged original; if you have typed a follow-up since, there is no target.
+1. After Pi or OMP finishes an answer, run `/slye` for an eligible target. It rewrites the latest completed assistant response once and adds a plain-language rewrite card below the unchanged original; if you have typed a follow-up since, there is no target.
 2. If no usable model exists, `/slye` opens the model and scope picker, saves the chosen model with automatic rewriting off, globally or, in a trusted project, locally, and immediately performs the rewrite.
 3. If you want eligible answers rewritten automatically, run `/slye on`. Run `/slye off` to stop automatic rewriting while keeping `/slye` available.
 
 | Command | What it does |
 | --- | --- |
 | `/slye` | Rewrite the latest completed assistant response on demand. |
-| `/slye model` | Choose a model without changing a valid automatic on/off state; first-time setup saves automatic rewriting off. Tab switches between scoped and all authenticated eligible models. |
+| `/slye model` | Choose a model without changing a valid automatic on/off state; first-time setup saves automatic rewriting off. Tab switches between scoped and all authenticated eligible models when the host provides scoped models. |
 | `/slye on` | Enable automatic rewriting, or choose a model and enable it when no usable model is saved. |
 | `/slye off` | Disable automatic rewriting; manual `/slye` remains available. |
 
@@ -63,13 +71,14 @@ Read the [MVP specification](backlog/docs/specs/doc-1%20-%20SLYE-MVP-specificati
 
 ## Development
 
-Requires Node 24+ and Pi.
+Requires Node 24+ and either Pi or OMP.
 
 ```sh
 npm ci
 npm run check
 npm pack --dry-run --json
 pi -e .
+omp -e ./src/omp.ts
 ```
 
-`pi -e .` loads the clone for local testing. Do not submit a prompt when you only need to check that the extension loads.
+The final two commands load the clone for local testing in Pi and OMP. Do not submit a prompt when you only need to check that the extension loads.

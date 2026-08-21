@@ -412,7 +412,7 @@ test("/slye on and off leave an invalid effective configuration unchanged", asyn
   for (const result of [on, off]) {
     assert.equal(result.notifications.length, 1);
     assert.equal(result.notifications[0]?.type, "warning");
-    assert.match(result.notifications[0]?.message ?? "", new RegExp(projectPath));
+    assert.ok(result.notifications[0]?.message.includes(projectPath));
     assert.deepEqual(result.selectedTitles, []);
   }
   assert.equal(await readFile(projectPath, "utf8"), invalidContents);

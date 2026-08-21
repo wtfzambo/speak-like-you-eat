@@ -312,7 +312,7 @@ export default function speakLikeYouEat(pi: ExtensionAPI): void {
         return outcome;
       }
 
-      pi.appendEntry<RewriteEntryData>(REWRITE_ENTRY_TYPE, {
+      await pi.appendEntry<RewriteEntryData>(REWRITE_ENTRY_TYPE, {
         display: outcome.display,
         targetEntryId: prepared.entryId,
       });
