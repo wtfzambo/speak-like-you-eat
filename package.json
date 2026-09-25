@@ -27,7 +27,8 @@
     "imgs/front.png",
     "README.md",
     "backlog/docs/specs/doc-1 - SLYE-MVP-specification.md",
-    "backlog/docs/specs/doc-4 - SLYE-benchmark-results.md"
+    "backlog/docs/specs/doc-4 - SLYE-benchmark-results.md",
+    "backlog/docs/runbooks/doc-6 - Customize-the-SLYE-system-prompt.md"
   ],
   "pi": {
     "extensions": [

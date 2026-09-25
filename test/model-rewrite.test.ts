@@ -44,6 +44,30 @@ test("builds one isolated user message with labelled context, the complete targe
   assert.deepEqual(context.systemPrompt.split("\n"), expectedSystemPromptLines);
 });
 
+test("uses a custom system prompt verbatim without changing the user message", async () => {
+  const customPrompt = "\n  Replace every built-in instruction.  \n";
+  const builtInContext = buildRewriteContext(request);
+  const customContext = buildRewriteContext(request, customPrompt);
+
+  assert.equal(customContext.systemPrompt, customPrompt);
+  assert.deepEqual(customContext.messages, builtInContext.messages);
+
+  let received: ReturnType<typeof buildRewriteContext> | undefined;
+  const outcome = await completeRewrite(
+    request,
+    undefined,
+    async (context) => {
+      received = context;
+      return { stopReason: "stop", content: [text("Rewritten.")] };
+    },
+    customPrompt,
+  );
+
+  assert.deepEqual(outcome, { kind: "success", display: "Rewritten." });
+  assert.equal(received?.systemPrompt, customPrompt);
+  assert.deepEqual(received?.messages, builtInContext.messages);
+});
+
 test("keeps an Italian target in the exact payload when prior context is English", () => {
   const target = "Il servizio riavvia i worker ogni notte per applicare gli aggiornamenti di sicurezza.";
   const context = buildRewriteContext({

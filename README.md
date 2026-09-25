@@ -37,6 +37,10 @@ pi install -l npm:speak-like-you-eat
 
 SLYE automatically uses the selected model's lowest supported thinking level. Automatic rewriting requires a normally completed final response with at least 200 non-whitespace prose characters outside fenced code. Manual `/slye` uses the same normal-completion, prose, and no-tool-call requirements, but has no 200-character minimum.
 
+### Custom system prompt
+
+To replace the built-in prompt with your own `slye-prompt.md`, follow [Customize the SLYE system prompt](backlog/docs/runbooks/doc-6%20-%20Customize-the-SLYE-system-prompt.md).
+
 ### Recommended models
 
 I ran a small, human-scored benchmark (me) to see how different cheap AI models would handle the "translation" part.
@@ -52,10 +56,10 @@ Models that I recommend:
 ## What SLYE guarantees
 
 - The original response stays visible and unchanged. The display-only card never enters LLM context.
-- SLYE's rewrite request tells the model to preserve the target response's language and intentional language mix rather than translate it.
+- SLYE's built-in prompt tells the model to preserve the target response's language and intentional language mix rather than translate it. A custom prompt replaces those instructions.
 - Each target has at most one persistent companion card. A secondary provider request has its own cost and latency and happens only for an automatically eligible response or an eligible, not-yet-completed manual target.
 - Escape cancels a rewrite. After 45 seconds or another failure, SLYE leaves the original alone, fails open, and lets you retry manually.
-- SLYE sends an isolated, SLYE-controlled payload directly to the selected provider. It does not load project instructions, skills, prompts, tools, files, or the full session history. Other extensions and provider-side processing are outside SLYE's control.
+- SLYE sends an isolated payload directly to the selected provider. Apart from its explicit configuration and optional `slye-prompt.md`, it does not load project files, project instructions, skills, prompt templates, tools, or the full session history. Other extensions and provider-side processing are outside SLYE's control.
 
 ## Evidence
 

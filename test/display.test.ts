@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import test from "node:test";
 import {
   type AgentEndEvent,
@@ -14,6 +14,7 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { writeConfigAtomically } from "../src/config.ts";
 import speakLikeYouEat from "../src/index.ts";
+import { PROMPT_FILENAME } from "../src/prompt.ts";
 
 initTheme("dark", false);
 
@@ -82,6 +83,7 @@ function createExtension(options: { appendThrows?: boolean | number } = {}): {
 function createContext(options: {
   cwd: string;
   branch: SessionEntry[];
+  projectTrusted?: boolean;
   mode?: "tui" | "print";
   modelUsable?: boolean;
   malformedThinking?: boolean;
@@ -244,7 +246,7 @@ function createContext(options: {
       },
     },
     isProjectTrusted() {
-      return false;
+      return options.projectTrusted ?? false;
     },
   } as unknown as ExtensionCommandContext;
 
@@ -326,6 +328,117 @@ test("calls the configured authenticated model once with an isolated exact rewri
   assert.equal(receivedOptions?.cacheRetention, "none");
   assert.match(receivedOptions?.sessionId ?? "", /^[0-9a-f-]{36}$/i);
   assert.notEqual(receivedOptions?.signal, testContext.context.signal);
+});
+
+test("reloads a global custom prompt for automatic rewrites of different targets", async (t) => {
+  const directory = await setupConfiguredDirectory(t, true);
+  const globalPromptPath = join(process.env.PI_CODING_AGENT_DIR ?? "", PROMPT_FILENAME);
+  const firstTarget = longAssistant([text("First completed response. ".repeat(20))]);
+  const secondTarget = longAssistant([text("Second completed response. ".repeat(20))]);
+  const branch = [entry("first-target", firstTarget)];
+  const prompts: string[] = [];
+  const extension = createExtension();
+  const testContext = createContext({
+    cwd: directory,
+    branch,
+    async complete(_model, request) {
+      prompts.push((request as { systemPrompt: string }).systemPrompt);
+      return response("stop", [text("Plain response.")]);
+    },
+  });
+
+  await writeFile(globalPromptPath, "first custom prompt", "utf8");
+  await extension.endAgent({ type: "agent_end", messages: [firstTarget] } as AgentEndEvent, testContext.context);
+  await writeFile(globalPromptPath, "second custom prompt", "utf8");
+  branch.push(entry("second-target", secondTarget));
+  await extension.endAgent({ type: "agent_end", messages: [secondTarget] } as AgentEndEvent, testContext.context);
+
+  assert.deepEqual(prompts, ["first custom prompt", "second custom prompt"]);
+  assert.deepEqual(extension.appendedEntries, [
+    { customType: "slye.rewrite", data: { display: "Plain response.", targetEntryId: "first-target" } },
+    { customType: "slye.rewrite", data: { display: "Plain response.", targetEntryId: "second-target" } },
+  ]);
+});
+
+test("uses a custom global prompt for a manual rewrite with automatic rewrites disabled", async (t) => {
+  const directory = await setupConfiguredDirectory(t, false);
+  const globalPromptPath = join(process.env.PI_CODING_AGENT_DIR ?? "", PROMPT_FILENAME);
+  const target = longAssistant([text("Short response.")]);
+  const branch = [entry("target", target)];
+  const extension = createExtension();
+  let prompt: string | undefined;
+  const testContext = createContext({
+    cwd: directory,
+    branch,
+    async complete(_model, request) {
+      prompt = (request as { systemPrompt: string }).systemPrompt;
+      return response("stop", [text("Plain response.")]);
+    },
+  });
+
+  await writeFile(globalPromptPath, "manual custom prompt", "utf8");
+  await extension.command.handler("", testContext.context);
+
+  assert.equal(prompt, "manual custom prompt");
+  assert.equal(testContext.completionCalls, 1);
+});
+
+test("blocks an invalid trusted project prompt, warns once, and permits a repaired manual retry", async (t) => {
+  const directory = await setupConfiguredDirectory(t, true);
+  const globalPromptPath = join(process.env.PI_CODING_AGENT_DIR ?? "", PROMPT_FILENAME);
+  const projectPromptPath = join(directory, ".pi", PROMPT_FILENAME);
+  const target = longAssistant();
+  const branch = [entry("target", target)];
+  const extension = createExtension();
+  const testContext = createContext({ cwd: directory, branch, projectTrusted: true });
+
+  await writeFile(globalPromptPath, "global prompt", "utf8");
+  await writePromptFile(projectPromptPath, " \n");
+  await extension.endAgent({ type: "agent_end", messages: [target] } as AgentEndEvent, testContext.context);
+  await extension.command.handler("", testContext.context);
+
+  assert.equal(testContext.completionCalls, 0);
+  assert.deepEqual(extension.appendedEntries, []);
+  assert.deepEqual(testContext.notifications, [
+    {
+      message: `SLYE system prompt is invalid at ${projectPromptPath}. Fix or remove it.`,
+      type: "warning",
+    },
+  ]);
+
+  await writePromptFile(projectPromptPath, "repaired project prompt");
+  await extension.command.handler("", testContext.context);
+
+  assert.equal(testContext.completionCalls, 1);
+  assert.deepEqual(extension.appendedEntries, [
+    { customType: "slye.rewrite", data: { display: "Plain response.", targetEntryId: "target" } },
+  ]);
+});
+
+test("uses the global prompt when an untrusted project has an invalid prompt", async (t) => {
+  const directory = await setupConfiguredDirectory(t, true);
+  const globalPromptPath = join(process.env.PI_CODING_AGENT_DIR ?? "", PROMPT_FILENAME);
+  const projectPromptPath = join(directory, ".pi", PROMPT_FILENAME);
+  const target = longAssistant();
+  const branch = [entry("target", target)];
+  const extension = createExtension();
+  let prompt: string | undefined;
+  const testContext = createContext({
+    cwd: directory,
+    branch,
+    async complete(_model, request) {
+      prompt = (request as { systemPrompt: string }).systemPrompt;
+      return response("stop", [text("Plain response.")]);
+    },
+  });
+
+  await writeFile(globalPromptPath, "global prompt", "utf8");
+  await writePromptFile(projectPromptPath, " \n");
+  await extension.endAgent({ type: "agent_end", messages: [target] } as AgentEndEvent, testContext.context);
+
+  assert.equal(prompt, "global prompt");
+  assert.equal(testContext.completionCalls, 1);
+  assert.deepEqual(testContext.notifications, []);
 });
 
 test("does not call a model outside TUI or with missing, disabled, or unusable configuration", async (t) => {
@@ -853,13 +966,14 @@ test("Escape cancels the manual loader silently and a later manual request succe
 
   await extension.command.handler("", cancelled.context);
   await Promise.resolve();
-  assert.equal(requestSignal?.aborted, true);
+  assert.equal(requestSignal, undefined);
+  assert.equal(calls, 0);
   assert.deepEqual(extension.appendedEntries, []);
   assert.deepEqual(cancelled.notifications, []);
 
   const retried = createContext({ cwd: directory, branch });
   await extension.command.handler("", retried.context);
-  assert.equal(calls, 1);
+  assert.equal(calls, 0);
   assert.equal(retried.completionCalls, 1);
   assert.equal(extension.appendedEntries.length, 1);
 });
@@ -956,6 +1070,11 @@ function rewriteEntry(id: string, data: unknown): SessionEntry {
     customType: "slye.rewrite",
     data,
   } as SessionEntry;
+}
+
+async function writePromptFile(path: string, text: string): Promise<void> {
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, text, "utf8");
 }
 
 async function readConfigFile(path: string): Promise<unknown> {

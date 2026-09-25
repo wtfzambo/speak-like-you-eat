@@ -23,6 +23,7 @@ import {
 import { completeModel, lowestSupportedThinkingLevel, type ThinkingLevel } from "./model-completion.ts";
 import { formatModelCandidate, pickModel, selectModelCandidates } from "./model-picker.ts";
 import { completeRewrite, type RewriteOutcome } from "./model-rewrite.ts";
+import { loadEffectivePrompt, PROMPT_FILENAME } from "./prompt.ts";
 import { type PreparedRewriteRequest, prepareManualRewriteRequest, prepareRewriteRequest } from "./rewrite.ts";
 
 const USAGE = "Usage: /slye [model|on|off]";
@@ -305,8 +306,24 @@ export default function speakLikeYouEat(pi: ExtensionAPI): void {
     signal: AbortSignal | undefined,
   ): Promise<RewriteOutcome> {
     try {
-      const outcome = await completeRewrite(prepared.request, signal, (request, options) =>
-        completeModel(ctx.modelRegistry, model.model, request, options),
+      const prompt = await loadEffectivePrompt(
+        join(getAgentDir(), PROMPT_FILENAME),
+        join(ctx.cwd, CONFIG_DIR_NAME, PROMPT_FILENAME),
+        ctx.isProjectTrusted(),
+      );
+      if (signal?.aborted) {
+        return { kind: "cancelled" };
+      }
+      if (prompt.kind === "invalid") {
+        notifyProcessingWarning(ctx, `SLYE system prompt is invalid at ${prompt.path}. Fix or remove it.`);
+        return { kind: "failed" };
+      }
+
+      const outcome = await completeRewrite(
+        prepared.request,
+        signal,
+        (request, options) => completeModel(ctx.modelRegistry, model.model, request, options),
+        prompt.kind === "valid" ? prompt.text : undefined,
       );
       if (outcome.kind !== "success") {
         return outcome;
@@ -332,13 +349,13 @@ export default function speakLikeYouEat(pi: ExtensionAPI): void {
     ctx.ui.notify(message, "warning");
   }
 
-  function notifyProcessingWarning(ctx: ExtensionContext): void {
+  function notifyProcessingWarning(ctx: ExtensionContext, message = "SLYE could not create a rewrite."): void {
     if (hasShownProcessingWarning) {
       return;
     }
 
     hasShownProcessingWarning = true;
-    ctx.ui.notify("SLYE could not create a rewrite.", "warning");
+    ctx.ui.notify(message, "warning");
   }
 }
 

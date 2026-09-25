@@ -7,6 +7,7 @@ import { promisify } from "node:util";
 const README_LINKED_DOCUMENTS = [
   "backlog/docs/specs/doc-1 - SLYE-MVP-specification.md",
   "backlog/docs/specs/doc-4 - SLYE-benchmark-results.md",
+  "backlog/docs/runbooks/doc-6 - Customize-the-SLYE-system-prompt.md",
 ];
 
 const PACKAGE_FILES = [
@@ -15,11 +16,13 @@ const PACKAGE_FILES = [
   "README.md",
   "backlog/docs/specs/doc-1 - SLYE-MVP-specification.md",
   "backlog/docs/specs/doc-4 - SLYE-benchmark-results.md",
+  "backlog/docs/runbooks/doc-6 - Customize-the-SLYE-system-prompt.md",
 ];
 
 const PACKED_FILES = [
   "LICENSE",
   "README.md",
+  "backlog/docs/runbooks/doc-6 - Customize-the-SLYE-system-prompt.md",
   "backlog/docs/specs/doc-1 - SLYE-MVP-specification.md",
   "backlog/docs/specs/doc-4 - SLYE-benchmark-results.md",
   "imgs/front.png",
@@ -29,6 +32,7 @@ const PACKED_FILES = [
   "src/model-completion.ts",
   "src/model-picker.ts",
   "src/model-rewrite.ts",
+  "src/prompt.ts",
   "src/rewrite.ts",
 ];
 
@@ -54,7 +58,7 @@ type PackageLock = {
 
 const runCommand = promisify(execFile);
 
-test("the package manifest declares public release metadata, its extension, README-linked governed documents, and the 12-file public allowlist", async () => {
+test("the package manifest declares public release metadata, its extension, README-linked governed documents, and the 14-file public allowlist", async () => {
   const packageUrl = new URL("../package.json", import.meta.url);
   const packageJson = JSON.parse(await readFile(packageUrl, "utf8")) as PackageManifest;
   const packageLockUrl = new URL("../package-lock.json", import.meta.url);
@@ -100,6 +104,7 @@ test("the package manifest declares public release metadata, its extension, READ
   const readme = await readFile(new URL("../README.md", import.meta.url), "utf8");
   assert.ok(readme.includes("backlog/docs/specs/doc-1%20-%20SLYE-MVP-specification.md"));
   assert.ok(readme.includes("backlog/docs/specs/doc-4%20-%20SLYE-benchmark-results.md"));
+  assert.ok(readme.includes("backlog/docs/runbooks/doc-6%20-%20Customize-the-SLYE-system-prompt.md"));
   assert.ok(!readme.includes("backlog/docs/runbooks/doc-2%20-%20SLYE-sandbox-manual-checks.md"));
 
   const packed = JSON.parse(

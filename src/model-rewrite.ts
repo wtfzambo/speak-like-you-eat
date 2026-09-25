@@ -48,12 +48,12 @@ const REWRITE_SYSTEM_PROMPT = [
   "Output only the rewrite, with no label, preamble, or commentary.",
 ].join("\n");
 
-export function buildRewriteContext(request: RewriteRequest): RewriteContext {
+export function buildRewriteContext(request: RewriteRequest, systemPrompt?: string): RewriteContext {
   const context = serializeContext(request.context);
   const content = `Context:\n${context}\n\nTarget:\n${request.target}\n\nRewrite the target above. Return only its rewritten text; do not answer it.`;
 
   return {
-    systemPrompt: REWRITE_SYSTEM_PROMPT,
+    systemPrompt: systemPrompt ?? REWRITE_SYSTEM_PROMPT,
     messages: [{ role: "user", content, timestamp: 0 }],
   };
 }
@@ -62,6 +62,7 @@ export async function completeRewrite(
   request: RewriteRequest,
   userSignal: AbortSignal | undefined,
   complete: CompleteRewrite,
+  systemPrompt?: string,
 ): Promise<RewriteOutcome> {
   if (userSignal?.aborted) {
     return { kind: "cancelled" };
@@ -72,7 +73,7 @@ export async function completeRewrite(
   let removeUserAbortListener: (() => void) | undefined;
 
   try {
-    const completion = complete(buildRewriteContext(request), {
+    const completion = complete(buildRewriteContext(request, systemPrompt), {
       signal: requestController.signal,
       cacheRetention: "none",
       sessionId: randomUUID(),

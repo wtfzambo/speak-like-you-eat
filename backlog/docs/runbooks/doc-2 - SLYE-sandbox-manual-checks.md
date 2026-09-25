@@ -3,7 +3,7 @@ id: doc-2
 title: SLYE sandbox manual checks
 type: guide
 created_date: '2026-08-13 23:14'
-updated_date: '2026-08-20 18:06'
+updated_date: '2026-09-25 21:01'
 ---
 # SLYE sandbox manual checks
 
@@ -134,7 +134,7 @@ npm run check
 npm pack --dry-run --json
 ```
 
-The dry run must contain exactly 12 files: `LICENSE`, `README.md`, `package.json`, `imgs/front.png`, the packaged specification and benchmark-results documents (`doc-1` and `doc-4`), and the six shipped `src/` TypeScript files. It must exclude `test/`, `backlog/tasks/`, `backlog/decisions/`, the sandbox runbook (`doc-2`), `AGENTS.md`, `.pi/`, `.pandino/`, and sandbox data.
+The dry run must contain exactly 14 files: `LICENSE`, `README.md`, `package.json`, `imgs/front.png`, the packaged specification and benchmark-results documents (`doc-1` and `doc-4`), the custom-prompt runbook (`doc-6`), and the seven shipped `src/` TypeScript files. It must exclude `test/`, `backlog/tasks/`, `backlog/decisions/`, the sandbox runbook (`doc-2`), `AGENTS.md`, `.pi/`, `.pandino/`, and sandbox data.
 
 After publication, check the public package from a fresh temporary project without submitting a prompt or making a model request:
 
