@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/wtfzambo/speak-like-you-eat/compare/v1.2.0...v1.3.0) (2026-09-25)
+
+
+### Features
+
+* support custom system prompts from scoped files ([a939f21](https://github.com/wtfzambo/speak-like-you-eat/commit/a939f213bdca03b6e9a6f1a945333fa0a96ceff2))
+
 ## [1.2.0](https://github.com/wtfzambo/speak-like-you-eat/compare/v1.1.0...v1.2.0) (2026-09-25)
 
 
