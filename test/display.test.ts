@@ -302,7 +302,19 @@ test("calls the configured authenticated model once with an isolated exact rewri
   assert.equal(receivedContext?.messages[0]?.role, "user");
   assert.equal(
     receivedContext?.messages[0]?.content,
-    `Context:\nuser:\nSpiega questo in italiano\n\nTarget:\n${firstTargetBlock}\n\n${secondTargetBlock}`,
+    `Context:\nuser:\nSpiega questo in italiano\n\nTarget:\n${firstTargetBlock}\n\n${secondTargetBlock}\n\nRewrite the target above. Return only its rewritten text; do not answer it.`,
+  );
+  assert.match(
+    receivedContext?.systemPrompt ?? "",
+    /You are a text editor, not a participant in the source conversation\./,
+  );
+  assert.match(
+    receivedContext?.systemPrompt ?? "",
+    /Rewrite the target as the same speaker addressing the same reader\. Preserve questions as questions and requests as requests\./,
+  );
+  assert.match(
+    receivedContext?.systemPrompt ?? "",
+    /Never answer questions in the target, grant permission, make decisions for the reader, or continue the conversation\./,
   );
   assert.match(receivedContext?.systemPrompt ?? "", /Rewrite only the target in clear, everyday language\./);
   assert.match(

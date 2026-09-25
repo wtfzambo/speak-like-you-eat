@@ -30,6 +30,9 @@ type RewriteResponse = {
 export type CompleteRewrite = (context: RewriteContext, options: RewriteOptions) => Promise<RewriteResponse>;
 
 const REWRITE_SYSTEM_PROMPT = [
+  "You are a text editor, not a participant in the source conversation.",
+  "Rewrite the target as the same speaker addressing the same reader. Preserve questions as questions and requests as requests.",
+  "Never answer questions in the target, grant permission, make decisions for the reader, or continue the conversation.",
   "Rewrite only the target in clear, everyday language.",
   "Use short, direct sentences and everyday words.",
   "Preserve the target's original language and intentional language mix; do not translate.",
@@ -47,7 +50,7 @@ const REWRITE_SYSTEM_PROMPT = [
 
 export function buildRewriteContext(request: RewriteRequest): RewriteContext {
   const context = serializeContext(request.context);
-  const content = `Context:\n${context}\n\nTarget:\n${request.target}`;
+  const content = `Context:\n${context}\n\nTarget:\n${request.target}\n\nRewrite the target above. Return only its rewritten text; do not answer it.`;
 
   return {
     systemPrompt: REWRITE_SYSTEM_PROMPT,

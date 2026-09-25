@@ -1,5 +1,5 @@
-import { buildRewriteContext } from "../src/model-rewrite.ts";
-import type { RewriteRequest } from "../src/rewrite.ts";
+import type { buildRewriteContext } from "../src/model-rewrite.ts";
+import { type RewriteRequest, serializeContext } from "../src/rewrite.ts";
 
 export const PHASE_ONE_SYSTEM_PROMPT = [
   "Rewrite only the target in clear, everyday language.",
@@ -29,9 +29,19 @@ export const PHASE_TWO_SYSTEM_PROMPT = [
 ].join("\n");
 
 export function buildPhaseOneContext(request: RewriteRequest): ReturnType<typeof buildRewriteContext> {
-  return { ...buildRewriteContext(request), systemPrompt: PHASE_ONE_SYSTEM_PROMPT };
+  return buildHistoricalContext(request, PHASE_ONE_SYSTEM_PROMPT);
 }
 
 export function buildPhaseTwoContext(request: RewriteRequest): ReturnType<typeof buildRewriteContext> {
-  return { ...buildRewriteContext(request), systemPrompt: PHASE_TWO_SYSTEM_PROMPT };
+  return buildHistoricalContext(request, PHASE_TWO_SYSTEM_PROMPT);
+}
+
+function buildHistoricalContext(request: RewriteRequest, systemPrompt: string): ReturnType<typeof buildRewriteContext> {
+  const context = serializeContext(request.context);
+  const content = `Context:\n${context}\n\nTarget:\n${request.target}`;
+
+  return {
+    systemPrompt,
+    messages: [{ role: "user", content, timestamp: 0 }],
+  };
 }

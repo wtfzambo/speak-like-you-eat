@@ -51,6 +51,7 @@ import {
   validateRuntimeSupport,
 } from "../benchmark/runner.ts";
 import { buildRewriteContext } from "../src/model-rewrite.ts";
+import { serializeContext } from "../src/rewrite.ts";
 
 async function createTestWorkDirectory(): Promise<string> {
   return mkdtemp(join(tmpdir(), "slye-benchmark-test-"));
@@ -214,8 +215,13 @@ test("phase two pins its subset, frozen prompt, metadata, call identities, and b
     const productionContext = buildRewriteContext(request);
     const phaseOneContext = buildPhaseOneContext(request);
     const phaseTwoContext = buildPhaseTwoContext(request);
-    assert.deepEqual(phaseOneContext.messages, productionContext.messages);
-    assert.deepEqual(phaseTwoContext.messages, productionContext.messages);
+    assert.deepEqual(phaseOneContext.messages, phaseTwoContext.messages);
+    const historicalContent = `Context:\n${serializeContext(request.context)}\n\nTarget:\n${request.target}`;
+    assert.equal(phaseOneContext.messages[0]?.content, historicalContent);
+    assert.equal(
+      productionContext.messages[0]?.content,
+      `${historicalContent}\n\nRewrite the target above. Return only its rewritten text; do not answer it.`,
+    );
     assert.equal(phaseOneContext.systemPrompt, PHASE_ONE_SYSTEM_PROMPT);
     assert.equal(phaseOneContext.systemPrompt.includes("Replace clichés"), false);
     assert.equal(

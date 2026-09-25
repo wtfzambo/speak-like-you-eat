@@ -3,7 +3,7 @@ id: doc-3
 title: SLYE benchmark procedure
 type: guide
 created_date: '2026-08-14 02:50'
-updated_date: '2026-08-14 17:30'
+updated_date: '2026-09-25 18:14'
 ---
 # SLYE benchmark procedure
 
@@ -61,7 +61,7 @@ Review the anonymized outputs against the rubric: simplification, cliché remova
 
 Phase one completed 108/108 calls and a locked blind human review. It showed that the backup-cliché, inflated-prose, and clear-control fixtures carried most quality differentiation; code, Markdown, literal, and injection fixtures mainly validated safety. Phase two therefore compares one evidence-based prompt variant only on those three fixtures and only with Terra off, GPT-OSS 120B low, and DeepSeek V4 off. Existing phase-one outputs remain the baseline and are not called again.
 
-The phase-two prompt kept the then-current production prompt and inserted three exact evidence-based instructions immediately before the final output-only instruction. `benchmark/phase-2-manifest.json` fingerprints the complete prompt, variant ID, phase-one baseline fingerprint, ordered fixture IDs, ordered candidate IDs, isolated payload hashes, completion options, price snapshot, and budgets. The production prompt now matches this tested phase-two snapshot exactly; the benchmark keeps frozen phase-one and phase-two system prompts so later production prompt changes cannot rewrite historical fingerprints or call IDs.
+The phase-two prompt kept the then-current production prompt and inserted three exact evidence-based instructions immediately before the final output-only instruction. `benchmark/phase-2-manifest.json` fingerprints the complete prompt, variant ID, phase-one baseline fingerprint, ordered fixture IDs, ordered candidate IDs, isolated payload hashes, completion options, price snapshot, and budgets. The phase-two snapshot records the prompt tested at that time; production has since evolved. The benchmark keeps both historical system prompts and the original Context/Target user-message framing independent of the production request builder, so later production prompt changes cannot rewrite historical fingerprints or call IDs.
 
 The setup approval does not approve model calls. Review the no-call manifest with:
 
