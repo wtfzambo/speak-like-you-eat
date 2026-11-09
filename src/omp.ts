@@ -69,7 +69,7 @@ type OmpRuntimeApi = {
   on(event: string, handler: OmpHandler): void;
   registerCommand(name: string, options: OmpCommandOptions): void;
   registerMessageRenderer(customType: string, renderer: RuntimeMessageRenderer): void;
-  sendMessage(message: unknown, options?: { triggerTurn?: boolean }): void;
+  sendMessage(message: unknown, options?: { triggerTurn?: boolean; deliverAs?: "nextTurn" }): void;
 };
 
 /**
@@ -174,7 +174,8 @@ function sendWhenIdle(
     const send = (): void => {
       try {
         if (context.isIdle()) {
-          sendMessage(message, { triggerTurn: false });
+          // An idle plain append replays the whole transcript in OMP, which moves the reader's viewport; nextTurn appends only the card.
+          sendMessage(message, { triggerTurn: false, deliverAs: "nextTurn" });
           resolve();
           return;
         }

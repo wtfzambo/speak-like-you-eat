@@ -31,7 +31,7 @@ type RuntimeCommand = { handler: (args: string, context: unknown) => unknown };
 type RuntimeRenderer = (message: { details?: unknown }, options: unknown, theme: unknown) => unknown;
 type Notification = { message: string; type: "info" | "warning" | "error" | undefined };
 type CustomComponent = { dispose?: () => void; handleInput?: (data: string) => void };
-type SendOptions = { triggerTurn?: boolean };
+type SendOptions = { triggerTurn?: boolean; deliverAs?: "nextTurn" };
 type SentMessage = {
   customType: string;
   content: string;
@@ -447,7 +447,7 @@ test("manually rewrites through bound OMP services and persists a custom message
     "Target:\nShort response.\n\nRewrite the target above. Return only its rewritten text; do not answer it.",
   );
   assert.deepEqual(runtime.sentMessages, [rewriteMessage("Plain manual response.", "target")]);
-  assert.deepEqual(runtime.sendOptions, [{ triggerTurn: false }]);
+  assert.deepEqual(runtime.sendOptions, [{ triggerTurn: false, deliverAs: "nextTurn" }]);
 });
 
 test("maps mandatory native thinking to canonical requests and all-model picker labels", async (t) => {
@@ -853,7 +853,7 @@ test("automatically rewrites once with a missing OMP signal", async (t) => {
 
   assert.deepEqual(context.ui.workingMessages, ["Rewriting AI-speak…", undefined]);
   assert.deepEqual(runtime.sentMessages, [rewriteMessage("Plain automatic response.", "target")]);
-  assert.deepEqual(runtime.sendOptions, [{ triggerTurn: false }]);
+  assert.deepEqual(runtime.sendOptions, [{ triggerTurn: false, deliverAs: "nextTurn" }]);
 });
 
 test("warns on a synchronous OMP send rejection and leaves the target manually retryable", async (t) => {
@@ -883,7 +883,7 @@ test("warns on a synchronous OMP send rejection and leaves the target manually r
 
   assert.equal(provider.calls, 2);
   assert.deepEqual(runtime.sentMessages, [rewriteMessage("Plain retryable response.", "target")]);
-  assert.deepEqual(runtime.sendOptions, [{ triggerTurn: false }]);
+  assert.deepEqual(runtime.sendOptions, [{ triggerTurn: false, deliverAs: "nextTurn" }]);
   assert.deepEqual(context.ui.notifications, [{ message: "SLYE could not create a rewrite.", type: "warning" }]);
 });
 
