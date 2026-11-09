@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.1](https://github.com/wtfzambo/speak-like-you-eat/compare/v1.6.0...v1.6.1) (2026-11-09)
+
+
+### Bug Fixes
+
+* append the OMP card as an idle nextTurn delivery ([e2f8775](https://github.com/wtfzambo/speak-like-you-eat/commit/e2f8775894b759966b152e9abf864647bee835ff))
+* append the OMP card without replaying the transcript ([8b92bfa](https://github.com/wtfzambo/speak-like-you-eat/commit/8b92bfad9e1fd581f8c207c8963bbb27c159f0b7))
+
 ## [1.6.0](https://github.com/wtfzambo/speak-like-you-eat/compare/v1.5.0...v1.6.0) (2026-10-29)
 
 
